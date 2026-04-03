@@ -1,0 +1,17 @@
+{
+    "domain": "zigbee2mqtt_ws",
+    "name": "Zigbee2MQTT WebSocket",
+    "documentation": "https://github.com/arteck/ioBroker.zigbee2mqtt",
+    "issue_tracker": "https://github.com/arteck/ioBroker.zigbee2mqtt/issues",
+    "version": "1.0.0",
+    "requirements": [
+        "aiohttp>=3.8.0"
+    ],
+    "codeowners": [
+        "@arteck"
+    ],
+    "config_flow": true,
+    "iot_class": "local_push",
+    "loggers": ["zigbee2mqtt_ws"],
+    "integration_type": "device"
+}
