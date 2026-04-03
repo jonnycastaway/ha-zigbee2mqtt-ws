@@ -3,7 +3,7 @@
     "name": "Zigbee2MQTT WebSocket",
     "documentation": "https://github.com/arteck/ioBroker.zigbee2mqtt",
     "issue_tracker": "https://github.com/arteck/ioBroker.zigbee2mqtt/issues",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "requirements": [
         "aiohttp>=3.8.0"
     ],
