@@ -7,12 +7,6 @@ import async_timeout
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import aiohttp_client
-from homeassistant.helpers.schema_config_entry_flow import (
-    SchemaFlowFormStep,
-    SchemaOptionsFlowHandler,
-)
 
 from .const import DEFAULT_PORT, DOMAIN
 
@@ -26,7 +20,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow):
     """Handle a config flow for Zigbee2MQTT WebSocket."""
 
     VERSION = 1
@@ -45,8 +39,3 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
-
-
-OPTIONS_FLOW = {
-    "init": SchemaFlowFormStep(STEP_USER_DATA_SCHEMA),
-}

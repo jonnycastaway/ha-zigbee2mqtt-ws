@@ -11,6 +11,7 @@ from homeassistant.const import (
     CONF_PASSWORD,
     CONF_PORT,
     CONF_USERNAME,
+    EVENT_HOMEASSISTANT_STOP,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -28,6 +29,9 @@ class Zigbee2MqttData:
         self.devices = {}
         self.groups = {}
 
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    return True
+
 async def async_setup_entry(hass: HomeAssistant, config_entry: config_entries.ConfigEntry) -> bool:
     host = config_entry.data[CONF_HOST]
     port = config_entry.data[CONF_PORT]
@@ -44,7 +48,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: config_entries.Co
     hass.data[DOMAIN] = Zigbee2MqttData()
     hass.data[DOMAIN].ws_client = websocket
 
-    # Request initial data
     await websocket.request_device_list()
 
     hass.async_create_task(
