@@ -23,6 +23,9 @@ from .websocket_client import Zigbee2MqttWebSocket
 
 _LOGGER = logging.getLogger(__name__)
 
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    return True
+
 class Zigbee2MqttData:
     def __init__(self) -> None:
         self.ws_client: Optional[Zigbee2MqttWebSocket] = None

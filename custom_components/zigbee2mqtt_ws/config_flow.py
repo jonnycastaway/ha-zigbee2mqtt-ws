@@ -20,7 +20,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
-class ConfigFlow(config_entries.ConfigFlow):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Zigbee2MQTT WebSocket."""
 
     VERSION = 1
