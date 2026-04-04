@@ -1,7 +1,7 @@
 {
   "domain": "zigbee2mqtt_ws",
   "name": "Zigbee2MQTT (WebSocket)",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "documentation": "https://github.com/arteck/ioBroker.zigbee2mqtt",
   "dependencies": [],
   "codeowners": [],
