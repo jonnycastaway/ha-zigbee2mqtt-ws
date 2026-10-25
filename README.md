@@ -1,132 +1,129 @@
-# Zigbee2MQTT (WebSocket) für Home Assistant
+# Zigbee2MQTT (WebSocket) for Home Assistant
 
-**Deutsch** · [English](README.en.md)
+**English** · [Deutsch](README.de.md)
 
-Diese Integration holt deine Zigbee2MQTT-Geräte über die **WebSocket-Schnittstelle**
-von Zigbee2MQTT nach Home Assistant — als Alternative zum üblichen Weg über MQTT.
+This integration brings your Zigbee2MQTT devices into Home Assistant through the
+**WebSocket interface** of Zigbee2MQTT — as an alternative to the usual route via MQTT.
 
-Kurz gesagt: Zigbee2MQTT verwaltet die Zigbee-Geräte (Lampen, Steckdosen, Sensoren …),
-diese Integration ist die Leitung dazwischen und macht daraus Home-Assistant-Entitäten.
+In short: Zigbee2MQTT manages your Zigbee devices (lights, plugs, sensors …), this
+integration is the line in between and turns them into Home Assistant entities.
 
 ---
 
 ## Installation
 
-1. **HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories**
-2. URL eintragen: `https://github.com/jonnycastaway/ha-zigbee2mqtt-ws`
-   Kategorie: **Integration**
-3. Integration suchen, installieren, Home Assistant neu starten.
-4. **Einstellungen → Geräte & Dienste → Integration hinzufügen → „Zigbee2MQTT (WebSocket)"**
+1. **HACS → Integrations → ⋮ → Custom repositories**
+2. Add the URL `https://github.com/jonnycastaway/ha-zigbee2mqtt-ws`
+   Category: **Integration**
+3. Find the integration, install it and restart Home Assistant.
+4. **Settings → Devices & Services → Add integration → “Zigbee2MQTT (WebSocket)”**
 
-### Felder bei der Einrichtung
+### Setup fields
 
-| Feld | Bedeutung |
+| Field | Meaning |
 |---|---|
-| **Host** | IP oder Name des Rechners, auf dem Zigbee2MQTT läuft |
-| **Port** | Standard `8080` (die Web-Oberfläche von Zigbee2MQTT) |
-| **SSL** | nur anschalten, wenn Zigbee2MQTT hinter HTTPS läuft |
-| **Auth-Token** | nur nötig, wenn in der Zigbee2MQTT-Konfiguration ein `frontend: auth_token` gesetzt ist |
-| **Base Topic** | Standard `zigbee2mqtt`, nur bei abweichender Konfiguration ändern |
+| **Host** | IP address or hostname of the machine running Zigbee2MQTT |
+| **Port** | Default `8080` (the Zigbee2MQTT web interface) |
+| **SSL** | Only enable if Zigbee2MQTT is served over HTTPS |
+| **Auth token** | Only needed if `frontend: auth_token` is set in your Zigbee2MQTT configuration |
+| **Base topic** | Default `zigbee2mqtt`, only change it if your setup differs |
 
-Nach dem Einrichten erscheinen deine Zigbee-Geräte als ganz normale Geräte in
-Home Assistant — mit Lampen, Schaltern, Sensoren, Abdeckungen, Schlössern und
-Klimageräten, je nachdem was das Gerät kann.
+Afterwards your Zigbee devices show up as regular Home Assistant devices — lights,
+switches, sensors, covers, locks and climate devices, depending on what each device
+supports.
 
 ---
 
-## Verbindungsanzeige (ab Version 1.3.6)
+## Connection sensor (since 1.3.6)
 
-Es gibt ein zusätzliches Gerät **„Zigbee2MQTT (WebSocket)"** mit einer Diagnose-Entität:
+There is an additional device **“Zigbee2MQTT (WebSocket)”** with a diagnostic entity:
 
 ```
 binary_sensor.zigbee2mqtt_websocket_connection
 ```
 
-* **an** = Die Verbindung steht, es kommen Daten an.
-* **aus** = Seit etwa 2,5 Minuten keine Daten mehr.
+* **on** = the connection is up, data is arriving.
+* **off** = no data for about 2.5 minutes.
 
-Zusätzlich erscheint bei einem echten Ausfall eine **Benachrichtigung** in Home Assistant,
-die beim Wiederverbinden automatisch verschwindet.
+When the connection is really gone, a **persistent notification** appears in Home
+Assistant as well, and it disappears automatically once the link is back.
 
-Die Entität eignet sich zum Beispiel für eine eigene Automation („schick mir eine
-Nachricht, wenn die Verbindung länger weg ist") — so entscheidest du selbst, was passiert.
+You can use this entity for your own automation (e.g. “notify me when the connection has
+been down for a while”) — so you decide what happens.
 
-> **Wichtig:** Bei einem Verbindungsabbruch werden **keine** anderen Entitäten auf
-> „nicht verfügbar" gesetzt. Das ist Absicht: Zigbee2MQTT meldet selbst, wenn einzelne
-> Geräte nicht erreichbar sind. Würde die Integration bei jedem kurzen Aussetzer *alle*
-> Entitäten sperren, hätte das echte Nebenwirkungen — eine Alarmanlage zum Beispiel
-> behandelt „nicht verfügbare" Sensoren als ausgelöst, wenn man das pro Sensor so
-> eingestellt hat. Ein kurzer Netzwerk-Hänger würde dann die Sirene starten.
+> **Important:** On a disconnect, **no** other entities are marked as *unavailable*.
+> This is intentional: Zigbee2MQTT itself reports when individual devices cannot be
+> reached. If the integration locked *every* entity on each short network hiccup, that
+> would have real side effects — an alarm panel, for example, treats “unavailable”
+> sensors as triggered when that is enabled per sensor. A brief hiccup would then set
+> off the siren.
 
 ---
 
-## Was passiert bei einem Verbindungsabbruch?
+## What happens on a disconnect?
 
-* **Befehle gehen nicht verloren.** Schaltest du in Home Assistant eine Lampe, während die
-  Verbindung gerade weg ist, wird der Befehl gespeichert und nach dem Wiederverbinden
-  nachgeholt — bis zu **30 Sekunden** lang. Alles, was älter ist, wird verworfen, denn eine
-  Lampe eine Minute später einzuschalten wäre mehr Ärger als Nutzen.
-* **Die Anzeige bleibt auf dem letzten Stand**, bis wieder Daten ankommen. Der letzte
-  bekannte Zustand ist ehrlicher als ein erfundener.
-* **Automatisch neu verbinden:** Die Integration versucht es alle 5 Sekunden erneut.
+* **Commands are not lost.** If you switch a light in Home Assistant while the connection
+  is down, the command is stored and replayed after the reconnect — for up to **30
+  seconds**. Anything older is dropped, because switching a light a minute later is worse
+  than not switching it at all.
+* **The state stays as it was** until data arrives again. The last known state is more
+  honest than an invented one.
+* **Automatic reconnect:** the integration retries every 5 seconds.
 
 ---
 
 ## Changelog
 
-### 1.3.6 — Befehle gehen nicht mehr verloren, Verbindungsanzeige
+### 1.3.6 — commands are no longer lost, connection sensor
 
-**Behoben / neu:**
+**Fixed / new:**
 
-* **Befehle wurden stillschweigend verworfen.** Bisher hat die Integration Befehle, die
-  während eines Verbindungsabbruchs abgeschickt wurden, nur ins Log geschrieben und dann
-  vergessen. In der App sah es so aus, als hätte geklappt — die Lampe blieb aber aus.
-  Jetzt werden solche Befehle gespeichert und nach dem Wiederverbinden nachgeholt
-  (maximal 30 Sekunden alte Befehle).
-* **Neue Verbindungsanzeige + Benachrichtigung.** Man sieht jetzt in Home Assistant, ob die
-  Verbindung zu Zigbee2MQTT steht (siehe oben). Vorher merkte man einen Ausfall nur daran,
-  dass nichts mehr reagierte.
+* **Commands were silently dropped.** Previously, commands issued during a connection
+  outage were only written to the log and then forgotten. In the app it looked as if it
+  had worked — but the light stayed off. Those commands are now stored and replayed after
+  the reconnect (up to 30 seconds old).
+* **New connection sensor + notification.** You can now see in Home Assistant whether the
+  link to Zigbee2MQTT is up (see above). Before, an outage was only noticeable because
+  nothing reacted anymore.
 
-**Technischer Hintergrund:** Damit ein ruhiger Funkverkehr (nachts passiert oft minutenlang
-nichts) nicht mit einem Ausfall verwechselt wird, fragt die Integration bei Stille alle 30
-Sekunden kurz bei Zigbee2MQTT nach („bist du noch da?"). Erst wenn auch darauf nichts kommt
-und insgesamt 2,5 Minuten keine Daten eintrafen, gilt die Verbindung als getrennt.
+**Background:** so that a quiet Zigbee network (nothing happening for minutes at night) is
+not mistaken for an outage, the integration briefly asks Zigbee2MQTT “are you still
+there?” every 30 seconds while the link is silent. Only if that is not answered either, and
+no data arrived for 2.5 minutes in total, is the connection considered down.
 
-### 1.3.5 — Veraltete Zustände behoben
+### 1.3.5 — stale states fixed
 
-**Behoben:**
+**Fixed:**
 
-* **Lampen zeigten manchmal einen falschen Zustand.** Beispiel: Du stellst eine Lampe auf
-  100 % Helligkeit, Zigbee2MQTT meldet auch brav 100 % — Home Assistant zeigte aber
-  weiterhin die alten 25 %. Der richtige Wert war intern schon bekannt, wurde aber nicht
-  ans Dashboard weitergegeben. Erst ein Neustart oder ein Verbindungsabbruch hat den
-  Anzeigefehler repariert.
-  Ursache: Die Integration hat die Bestätigung von Zigbee2MQTT als „veraltete Meldung"
-  eingestuft und weggeworfen, sobald Home Assistant selbst gerade etwas geschaltet hatte.
-  Das passiert jetzt nicht mehr.
-* **Schnelle Änderungen wurden verschluckt.** Wenn mehrere Meldungen kurz hintereinander
-  kamen (z. B. Helligkeit + Farbe in einem Rutsch), konnte die letzte verloren gehen.
-  Jetzt wird sie nachgeholt.
-* **Abdeckungen und Schlösser** konnten kurzzeitig einen falschen Zustand anzeigen
-  (z. B. „offen" statt „geschlossen"), weil alle Zustände außer „an" als „aus" übersetzt
-  wurden. Behoben.
-* **Erreichbarkeit** von Geräten („offline"/„online") wird jetzt korrekt ins Dashboard
-  übernommen.
+* **Lights sometimes showed a wrong state.** Example: you set a lamp to 100 % brightness,
+  Zigbee2MQTT reports 100 % as well — but Home Assistant kept showing the old 25 %. The
+  correct value was already known internally, it just never reached the dashboard.
+  Only a restart or a reconnect repaired the display.
+  Cause: the integration treated the confirmation from Zigbee2MQTT as a “stale message”
+  and threw it away whenever Home Assistant had just sent a command itself. That no
+  longer happens.
+* **Rapid changes were swallowed.** When several messages arrived in quick succession
+  (e.g. brightness + colour at once), the last one could be lost. It is now written
+  afterwards.
+* **Covers and locks** could briefly show a wrong state (e.g. “open” instead of “closed”),
+  because every state other than “on” was translated to “off”. Fixed.
+* **Availability** of devices (“offline”/“online”) is now correctly passed on to the
+  dashboard.
 
-### Ältere Versionen
+### Older versions
 
-Bis einschließlich **1.3.4** gab es keine Changelogs. Kurzfassung: Aufbau der Integration,
-Unterstützung für Lampen, Schalter, Sensoren, Binärsensoren, Abdeckungen, Schlösser und
-Klimageräte, Verbesserungen für Home-Assistant-Versionen ab 2025.
+Up to and including **1.3.4** there were no changelogs. Summary: build-up of the
+integration, support for lights, switches, sensors, binary sensors, covers, locks and
+climate devices, improvements for Home Assistant versions from 2025 on.
 
 ---
 
-## Bekannte Eigenheiten
+## Known limitations
 
-* Die Integration nutzt die WebSocket-Schnittstelle der Zigbee2MQTT-Weboberfläche. Ist die
-  Weboberfläche in Zigbee2MQTT deaktiviert, funktioniert sie nicht.
-* Wird MQTT-Discovery parallel benutzt, entstehen doppelte Geräte. Dann bitte nur einen der
-  beiden Wege verwenden.
-* Nach einem Update über HACS die Integration einmal **neu laden**
-  (Einstellungen → Geräte & Dienste → Zigbee2MQTT (WebSocket) → ⋮ → Neu laden), damit neue
-  Entitäten erscheinen.
+* The integration uses the WebSocket interface of the Zigbee2MQTT web UI. It does not work
+  if the web frontend is disabled in Zigbee2MQTT.
+* Using MQTT discovery in parallel creates duplicate devices. Please use only one of the
+  two approaches.
+* After a HACS update, reload the integration once
+  (Settings → Devices & Services → Zigbee2MQTT (WebSocket) → ⋮ → Reload) so new entities
+  appear.
