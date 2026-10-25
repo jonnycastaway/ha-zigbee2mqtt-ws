@@ -5,6 +5,7 @@ import asyncio
 import logging
 from typing import Any
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
@@ -18,6 +19,17 @@ _LOGGER = logging.getLogger(__name__)
 SIGNAL_DEVICE_STATE_UPDATED = f"{DOMAIN}_device_state"
 SIGNAL_DEVICE_AVAILABILITY = f"{DOMAIN}_availability"
 SIGNAL_DEVICES_UPDATED = f"{DOMAIN}_devices"
+SIGNAL_CONNECTION_STATE = f"{DOMAIN}_connection"
+
+# Connection watchdog. The client reconnects every 5 s, so short hiccups must
+# stay invisible. To tell a quiet night (no Zigbee traffic) apart from a dead
+# link, a "health_check" request is sent to Zigbee2MQTT whenever the WebSocket
+# has been silent for a while - the answer counts as traffic.
+WATCHDOG_INTERVAL = 30
+WATCHDOG_QUIET_AFTER = 60
+WATCHDOG_STALE_AFTER = 150
+
+NOTIFICATION_ID = f"{DOMAIN}_disconnected"
 
 
 class Z2MCoordinator:
@@ -49,7 +61,13 @@ class Z2MCoordinator:
         self.devices: list[dict[str, Any]] = []
         self.device_map: dict[str, dict[str, Any]] = {}
 
+        # True while the WebSocket delivers messages (see _watchdog_loop)
+        self.connection_ok: bool = False
+        # Whether the "disconnected" notification is currently shown
+        self._notified_ok: bool = True
+
         self._connect_task: asyncio.Task | None = None
+        self._watchdog_task: asyncio.Task | None = None
 
     async def async_start(self) -> None:
         """Register listener and kick off the WebSocket connection task."""
@@ -60,16 +78,92 @@ class Z2MCoordinator:
             self.client.connect(),
             name=f"z2m_ws_{self.entry.entry_id}",
         )
+        self._watchdog_task = self.hass.async_create_background_task(
+            self._watchdog_loop(),
+            name=f"z2m_ws_watchdog_{self.entry.entry_id}",
+        )
 
     async def async_stop(self) -> None:
-        """Stop the connection and cancel the background task."""
-        if self._connect_task and not self._connect_task.done():
-            self._connect_task.cancel()
-            try:
-                await self._connect_task
-            except asyncio.CancelledError:
-                pass
+        """Stop the connection and cancel the background tasks."""
+        for task in (self._watchdog_task, self._connect_task):
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
         await self.client.disconnect()
+
+    # ── Connection watchdog ───────────────────────────────────────────────────
+
+    async def _watchdog_loop(self) -> None:
+        """Report a dead or silent WebSocket.
+
+        Entity availability is intentionally left alone: Zigbee2MQTT already
+        publishes per-device availability, and flipping every entity to
+        unavailable on a transport hiccup has real side effects (e.g. alarm
+        panels that treat unavailable sensors as triggered).
+        """
+        while True:
+            await asyncio.sleep(WATCHDOG_INTERVAL)
+            age = self.client.last_message_age
+
+            if self.client.connected and WATCHDOG_QUIET_AFTER <= (age or 0):
+                # Quiet link (no Zigbee traffic): ask the bridge for a sign of
+                # life so a hung connection cannot look healthy.
+                await self.client.bridge_request("health_check", "")
+
+            self._set_connection_state(
+                self.client.connected
+                and (age is None or age <= WATCHDOG_STALE_AFTER)
+            )
+
+    @callback
+    def _set_connection_state(self, ok: bool) -> None:
+        """Update the connection flag, the diagnostic entity and the notification."""
+        if ok != self.connection_ok:
+            self.connection_ok = ok
+            if ok:
+                _LOGGER.info("Z2M: connection to %s restored", self.entry.title)
+            else:
+                _LOGGER.warning(
+                    "Z2M: no data from %s for more than %ds (connected=%s, queued=%d)",
+                    self.entry.title,
+                    WATCHDOG_STALE_AFTER,
+                    self.client.connected,
+                    self.client.queued_commands,
+                )
+            async_dispatcher_send(self.hass, SIGNAL_CONNECTION_STATE, ok)
+
+        if ok == self._notified_ok:
+            return
+        self._notified_ok = ok
+        self.hass.async_create_task(self._update_notification(ok))
+
+    async def _update_notification(self, ok: bool) -> None:
+        """Show or clear the persistent notification for a dead connection.
+
+        ``async_create``/``async_dismiss`` are callbacks on current Home
+        Assistant and coroutines on older versions - handle both.
+        """
+        if ok:
+            result = persistent_notification.async_dismiss(self.hass, NOTIFICATION_ID)
+        else:
+            result = persistent_notification.async_create(
+                self.hass,
+                (
+                    f"No data from **{self.entry.title}** for more than "
+                    f"{WATCHDOG_STALE_AFTER} seconds.\n\n"
+                    "Entities keep their last known state. Check that Zigbee2MQTT "
+                    "is running and that its WebSocket port is reachable.\n\n"
+                    "Commands issued while the connection was down are replayed "
+                    "for up to 30 seconds."
+                ),
+                title="Zigbee2MQTT WebSocket disconnected",
+                notification_id=NOTIFICATION_ID,
+            )
+        if asyncio.iscoroutine(result):
+            await result
 
     @callback
     def _on_message(self, topic: str, payload: Any) -> None:
@@ -134,6 +228,8 @@ class Z2MCoordinator:
 
         _LOGGER.info("Z2M: received %d device(s) from bridge", len(devices))
         _LOGGER.debug("Z2M devices payload sample: %s", str(devices[0])[:500] if devices else "empty")
+        # bridge/devices is pushed on every (re)connect - the link is alive.
+        self._set_connection_state(True)
         async_dispatcher_send(self.hass, SIGNAL_DEVICES_UPDATED, devices)
 
     def _handle_bridge_state(self, payload: Any) -> None:
@@ -142,6 +238,8 @@ class Z2MCoordinator:
         else:
             state = str(payload)
         _LOGGER.info("Z2M bridge state: %s", state)
+        if state == "online":
+            self._set_connection_state(True)
 
     def _handle_availability(self, friendly_name: str, payload: Any) -> None:
         if isinstance(payload, dict):
