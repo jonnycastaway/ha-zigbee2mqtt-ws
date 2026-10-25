@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -49,10 +48,6 @@ class Z2MCoordinator:
         self.device_availability: dict[str, str] = {}
         self.devices: list[dict[str, Any]] = []
         self.device_map: dict[str, dict[str, Any]] = {}
-        
-        # Track pending state changes
-        # friendly_name -> (expected_state, previous_state, timestamp, optimistic_done)
-        self._pending_state: dict[str, tuple[str, str, float, bool]] = {}
 
         self._connect_task: asyncio.Task | None = None
 
@@ -161,53 +156,31 @@ class Z2MCoordinator:
         )
 
     def _handle_device_state(self, friendly_name: str, payload: Any) -> None:
+        """Merge an incoming device state payload and notify the entities.
+
+        Every message Z2M sends is authoritative. Older versions tried to
+        filter out "echoes" of our own commands, but that filter only looked
+        at the ``state`` key. HA always sends ``{"state": "ON"}`` together with
+        a brightness/color change, so the confirmation from Z2M looked like an
+        "old" state and the dispatch was dropped - the entity then kept the
+        previous brightness until the next reconnect. Never drop a dispatch:
+        merge, and only skip the write when nothing actually changed.
+        """
         if not isinstance(payload, dict):
             return
-        
-        pending = self._pending_state.get(friendly_name)
-        now = time.monotonic()
-        
-        # Always update internal state first
+
         current = self.device_states.setdefault(friendly_name, {})
+
+        if current and all(current.get(key) == value for key, value in payload.items()):
+            return  # duplicate message - nothing to do
+
         current.update(payload)
-        
-        should_dispatch = True
-        
-        if pending is not None:
-            expected_state, previous_state, timestamp, optimistic_done = pending
-            
-            # Check for timeout
-            if now - timestamp > 2.0:
-                self._pending_state.pop(friendly_name, None)
-                pending = None
-            elif "state" in payload:
-                received = str(payload["state"]).upper()
-                
-                if received == previous_state:
-                    # This is the OLD state - skip
-                    _LOGGER.debug("Skipping OLD state for %s", friendly_name)
-                    should_dispatch = False
-                elif received == expected_state:
-                    # This is the NEW state
-                    if optimistic_done:
-                        # Already did optimistic update, skip duplicate dispatch
-                        _LOGGER.debug("Skipping confirmed NEW state for %s", friendly_name)
-                        should_dispatch = False
-                    else:
-                        # No optimistic, dispatch to confirm
-                        _LOGGER.debug("Dispatching NEW state for %s", friendly_name)
-                    self._pending_state.pop(friendly_name, None)
-                else:
-                    # External change
-                    _LOGGER.debug("External state change for %s", friendly_name)
-                    self._pending_state.pop(friendly_name, None)
-        
-        if should_dispatch:
-            async_dispatcher_send(
-                self.hass,
-                f"{SIGNAL_DEVICE_STATE_UPDATED}_{friendly_name}",
-                current,
-            )
+
+        async_dispatcher_send(
+            self.hass,
+            f"{SIGNAL_DEVICE_STATE_UPDATED}_{friendly_name}",
+            current,
+        )
 
     # ── Accessors used by entity classes ──────────────────────────────────────
 

@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, Entity
+from homeassistant.helpers.event import async_call_later
 
 from .const import DOMAIN
 from .coordinator import (
@@ -39,6 +40,7 @@ class Z2MEntity(Entity):
         
         # Track last update time to throttle
         self._last_state_update: float = 0
+        self._pending_write: Callable[[], None] | None = None
 
         ieee = device.get("ieee_address", "unknown")
         self._friendly_name: str = device.get("friendly_name", ieee)
@@ -78,43 +80,65 @@ class Z2MEntity(Entity):
                 self._on_availability_update,
             )
         )
+        self.async_on_remove(self._cancel_pending_write)
+
+    @callback
+    def _cancel_pending_write(self) -> None:
+        if self._pending_write is not None:
+            self._pending_write()
+            self._pending_write = None
 
     @callback
     def _on_state_update(self, state: dict) -> None:
-        # Throttle state updates to prevent dispatcher flooding
+        """Write the new state, throttled but never losing the last update."""
         now = time.monotonic()
         if now - self._last_state_update < _STATE_UPDATE_THROTTLE:
+            # Burst of messages: do not drop this update, write it once the
+            # throttle window has passed. Dropping it left the entity stuck on
+            # the previous value until the next message arrived.
+            if self._pending_write is None:
+                self._pending_write = async_call_later(
+                    self.hass, _STATE_UPDATE_THROTTLE, self._delayed_state_update
+                )
             return
-        self._last_state_update = now
+
+        self._flush_state()
+
+    @callback
+    def _delayed_state_update(self, _now: Any) -> None:
+        self._pending_write = None
+        self._flush_state()
+
+    @callback
+    def _flush_state(self) -> None:
+        self._last_state_update = time.monotonic()
         self.async_write_ha_state()
 
     @callback
     def _on_availability_update(self, availability: str) -> None:
-        pass  # Suppress frequent logging - availability changes are handled via async_write_ha_state()
+        self.async_write_ha_state()
 
     async def _publish_set(self, payload: dict) -> None:
         """Publish /set command to device via WebSocket.
-        
-        Uses optimistic update - immediately update state before Z2M responds
-        to prevent UI flickering.
+
+        Uses an optimistic update - the values we send are applied to the local
+        state right away so the UI does not lag behind until Z2M answers.
+        The confirmation from Z2M is always merged afterwards.
         """
         friendly_name = self._friendly_name
         coordinator = self._coordinator
-        
+
+        optimistic: dict[str, Any] = {}
         if "state" in payload:
-            # Get previous state BEFORE updating
-            current = coordinator.device_states.get(friendly_name, {})
-            previous_state = current.get("state", "UNKNOWN")
-            new_state = "ON" if payload["state"] == "ON" else "OFF"
-            
-            # Optimistic update - set state immediately
-            current["state"] = new_state
-            coordinator.device_states[friendly_name] = current
-            
-            # Track pending state: (new, old, timestamp, optimistic_applied)
-            coordinator._pending_state[friendly_name] = (new_state, str(previous_state).upper(), time.monotonic(), True)
-            
-            # Trigger immediate UI update (optimistic)
+            # Raw value, not just ON/OFF: covers use OPEN/CLOSE/STOP and locks
+            # use LOCK/UNLOCK - mapping those to OFF broke their state.
+            optimistic["state"] = str(payload["state"]).upper()
+        for key in ("brightness", "color_temp", "color"):
+            if key in payload:
+                optimistic[key] = payload[key]
+
+        if optimistic:
+            coordinator.device_states.setdefault(friendly_name, {}).update(optimistic)
             self.async_write_ha_state()
-        
+
         await coordinator.client.set_state(friendly_name, payload)
