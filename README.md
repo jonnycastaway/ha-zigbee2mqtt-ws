@@ -1,5 +1,7 @@
 # Zigbee2MQTT (WebSocket) für Home Assistant
 
+**Deutsch** · [English](README.en.md)
+
 Diese Integration holt deine Zigbee2MQTT-Geräte über die **WebSocket-Schnittstelle**
 von Zigbee2MQTT nach Home Assistant — als Alternative zum üblichen Weg über MQTT.
 
