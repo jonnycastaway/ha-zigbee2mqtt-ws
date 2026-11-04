@@ -74,6 +74,15 @@ been down for a while”) — so you decide what happens.
 
 ## Changelog
 
+### 1.3.9 — siren shows "on" while flashing too
+
+**Changed:**
+
+* With `tone: flash` the entity used to stay "off" because no sound is played. It now
+  reports "on" for the whole warning time, since the device is active (strobe), and turns
+  off when `duration` elapses or `siren.turn_off` is called. Note: an automation that
+  reacts to "siren on" will also fire for the silent countdown flash.
+
 ### 1.3.8 — siren tones registered
 
 **Fixed:**

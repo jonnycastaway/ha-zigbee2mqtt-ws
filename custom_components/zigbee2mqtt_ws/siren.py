@@ -142,7 +142,6 @@ class Z2MSiren(Z2MEntity, SirenEntity):
         else:
             mode = tone if tone in self._modes else TONE_EMERGENCY
             strobe_duty = _STROBE_DUTY_SOUND
-
         warning: dict[str, Any] = {
             "mode": mode,
             "strobe": True,
@@ -154,7 +153,9 @@ class Z2MSiren(Z2MEntity, SirenEntity):
         await self._publish_set({"warning": warning})
 
         self._clear_timer()
-        self._attr_is_on = mode != "stop"
+        # The device is active either way - alarm sound or silent strobe - and
+        # Z2M never reports it back, so show "on" for the whole warning time.
+        self._attr_is_on = True
         self.async_write_ha_state()
         if duration:
             self._cancel_timer = async_call_later(

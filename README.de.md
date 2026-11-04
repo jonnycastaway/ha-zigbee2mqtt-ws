@@ -74,6 +74,16 @@ Nachricht, wenn die Verbindung länger weg ist") — so entscheidest du selbst, 
 
 ## Changelog
 
+### 1.3.9 — Sirene zeigt „an" auch beim Blinken
+
+**Geändert:**
+
+* Bisher blieb die Entität bei `tone: flash` auf „aus", weil dabei kein Ton läuft.
+  Jetzt steht sie während der gesamten Warnzeit auf „an" — das Gerät ist ja aktiv (Blitzlicht).
+  Nach Ablauf von `duration` bzw. nach `siren.turn_off` schaltet sie sich aus.
+  Hinweis: Eine Automation, die auf „Sirene an" reagiert, löst damit auch beim
+  Countdown-Blinken aus.
+
 ### 1.3.8 — Sirenen-Töne sichtbar
 
 **Behoben:**
