@@ -31,9 +31,19 @@ PLATFORMS: list[Platform] = [
     Platform.COVER,
     Platform.LOCK,
     Platform.CLIMATE,
+    Platform.SIREN,
 ]
 
-_PLATFORM_NAMES = ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate"]
+_PLATFORM_NAMES = [
+    "light",
+    "switch",
+    "sensor",
+    "binary_sensor",
+    "cover",
+    "lock",
+    "climate",
+    "siren",
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

@@ -29,7 +29,7 @@ integration is the line in between and turns them into Home Assistant entities.
 | **Base topic** | Default `zigbee2mqtt`, only change it if your setup differs |
 
 Afterwards your Zigbee devices show up as regular Home Assistant devices — lights,
-switches, sensors, covers, locks and climate devices, depending on what each device
+switches, sensors, covers, locks, climate devices and sirens, depending on what each device
 supports.
 
 ---
@@ -73,6 +73,19 @@ been down for a while”) — so you decide what happens.
 ---
 
 ## Changelog
+
+### 1.3.7 — sirens
+
+**New:**
+
+* **Sirens are supported.** Devices that offer the `warning` property in Zigbee2MQTT
+  (e.g. Heiman HS2WD-E) now show up as a `siren` entity, so the siren can be controlled
+  from Home Assistant directly — without MQTT.
+* **Tones:** `emergency` (alarm sound) and `flash` (light only, no sound). `flash` is handy
+  for countdown or notification blinking.
+* **`siren.turn_off`** sends `{"warning": {"mode": "stop"}}` and stops the siren.
+* **Duration:** `duration` (seconds) is passed to Zigbee2MQTT; the entity clears itself
+  afterwards because Zigbee2MQTT does not report the siren state back.
 
 ### 1.3.6 — commands are no longer lost, connection sensor
 
