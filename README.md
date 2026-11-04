@@ -74,6 +74,14 @@ been down for a while”) — so you decide what happens.
 
 ## Changelog
 
+### 1.3.8 — siren tones registered
+
+**Fixed:**
+
+* The siren did not register its tones (wrong attribute name), so Home Assistant rejected
+  `siren.turn_on` with `tone: …` ("Invalid tone specified"). `emergency` and `flash` are now
+  exposed as `available_tones`.
+
 ### 1.3.7 — sirens
 
 **New:**

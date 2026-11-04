@@ -74,6 +74,14 @@ Nachricht, wenn die Verbindung länger weg ist") — so entscheidest du selbst, 
 
 ## Changelog
 
+### 1.3.8 — Sirenen-Töne sichtbar
+
+**Behoben:**
+
+* Die Sirene hat ihre Töne nicht angemeldet (falscher Attributname), dadurch lehnte
+  Home Assistant `siren.turn_on` mit `tone: …` ab („Invalid tone specified"). Jetzt stehen
+  `emergency` und `flash` als `available_tones` zur Verfügung.
+
 ### 1.3.7 — Sirenen
 
 **Neu:**

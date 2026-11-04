@@ -101,7 +101,7 @@ class Z2MSiren(Z2MEntity, SirenEntity):
             if any(f.get("property") == "strobe" for f in expose.get("features", [])):
                 tones.append(TONE_FLASH)
 
-        self._attr_supported_tones = tones
+        self._attr_available_tones = tones
         self._attr_supported_features = (
             SirenEntityFeature.TURN_ON
             | SirenEntityFeature.TURN_OFF
